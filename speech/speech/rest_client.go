@@ -27,7 +27,6 @@ type restClient struct {
 
 // Make New Client for RESTful STT API
 func NewRestClient(opts ...auth.Option) (*restClient, error) {
-	opts = append(opts, auth.WithClientToken("https://openapi.vito.ai/v1/authenticate"))
 	httpClient, err := auth.NewAuthClient(opts...)
 	if err != nil {
 		return nil, err
@@ -153,14 +152,19 @@ func (c *restClient) ReceiveResult(ctx context.Context, resultId ResultId) (*Rec
 
 	response, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("error resposne")
+		return nil, fmt.Errorf("server request error")
 	}
 	defer response.Body.Close()
 
 	result := &RecognizeResponse{}
 	resByte, _ := io.ReadAll(response.Body)
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("error response : %s", string(resByte))
+	}
 
-	json.Unmarshal(resByte, &result)
+	if err := json.Unmarshal(resByte, &result); err != nil {
+		return nil, err
+	}
 
 	if result.Status == "completed" {
 		return result, nil
@@ -177,10 +181,6 @@ func (c *restClient) receiveResultWithPolling(ctx context.Context, resultId Resu
 		case <-time.After(delay):
 			res, err := c.ReceiveResult(ctx, resultId)
 			if err != nil && err != ErrNotFinish {
-				if errors.Is(err, context.Canceled) {
-					//continue to match ctx.Done()
-					continue
-				}
 				return nil, err
 			}
 

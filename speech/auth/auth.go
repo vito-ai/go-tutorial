@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,53 +17,81 @@ import (
 // TokenProvider Interface
 type TokenProvider interface {
 	Token(context.Context) (*ReturnZeroToken, error)
-	IsValid() bool
 }
 
 // Default Token Provider for RTZR
 type tokenProviderRTZR struct {
-	token  *ReturnZeroToken
-	opts   OptionsTokenRTZR
-	Client *http.Client
+	token        *ReturnZeroToken
+	Client       *http.Client
+	clientId     string
+	clientSecret string
+	TokenURL     string
+}
+
+// type Alias
+type Option = func(*tokenProviderRTZR)
+
+func WithClientId(clientId string) Option {
+	return func(ot *tokenProviderRTZR) {
+		ot.clientId = clientId
+	}
+}
+
+func WithClientSecret(clientSecret string) Option {
+	return func(ot *tokenProviderRTZR) {
+		ot.clientSecret = clientSecret
+	}
+}
+
+func defaultTokenProviderRTZR() *tokenProviderRTZR {
+	creds := credentials.GetDefaultClientCreds()
+	return &tokenProviderRTZR{
+		clientId:     creds.ClientId,
+		clientSecret: creds.ClientSecret,
+		TokenURL:     "https://openapi.vito.ai/v1/authenticate",
+	}
 }
 
 func NewRTZRTokenProvider(opts ...Option) (TokenProvider, error) {
-	var tp tokenProviderRTZR
-
-	creds := credentials.GetDefaultClientCreds()
-	tp.opts.ClientId = creds.ClientId
-	tp.opts.ClientSecret = creds.ClientSecret
+	tp := defaultTokenProviderRTZR()
 
 	for _, opt := range opts {
-		err := opt(&tp.opts)
-		if err != nil {
-			return nil, err
-		}
+		opt(tp)
 	}
 
-	tp.opts.TokenURL = tp.opts.token()
-	if err := tp.opts.validate(); err != nil {
+	if err := tp.validate(); err != nil {
 		return nil, err
 	}
 
-	tp.Client = tp.opts.client()
-	return &tp, nil
+	return tp, nil
 }
 
-func (tp *tokenProviderRTZR) IsValid() bool {
-	return tp.token.IsValid()
+func (o *tokenProviderRTZR) validate() error {
+	if o == nil {
+		return errors.New("auth : options must be provided")
+	}
+	if o.clientId == "" {
+		return errors.New("auth: RTZR_CLIENT_ID must be provided")
+	}
+	if o.clientSecret == "" {
+		return errors.New("auth: RTZR_CLIENT_SECRET must be provided")
+	}
+	if o.TokenURL == "" {
+		return errors.New("auth: TokenURL must be provided")
+	}
+	return nil
 }
 
 func (tp *tokenProviderRTZR) Token(ctx context.Context) (*ReturnZeroToken, error) {
-	if tp.token.IsValid() {
+	if tp.token.isValidWithExpiry() {
 		return tp.token, nil
 	}
 
 	formData := url.Values{}
-	formData.Set("client_id", tp.opts.ClientId)
-	formData.Set("client_secret", tp.opts.ClientSecret)
+	formData.Set("client_id", tp.clientId)
+	formData.Set("client_secret", tp.clientSecret)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tp.opts.TokenURL, strings.NewReader(formData.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tp.TokenURL, strings.NewReader(formData.Encode()))
 	if err != nil {
 		return nil, err
 	}

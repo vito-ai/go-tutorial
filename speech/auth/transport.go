@@ -10,7 +10,7 @@ type authTransport struct {
 }
 
 func NewAuthClient(opts ...Option) (*http.Client, error) {
-	tp, err := newAuthTransport(http.DefaultTransport, opts...)
+	tp, err := newAuthTransport(opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -18,12 +18,12 @@ func NewAuthClient(opts ...Option) (*http.Client, error) {
 	return httpClient, nil
 }
 
-func newAuthTransport(t http.RoundTripper, opts ...Option) (http.RoundTripper, error) {
+func newAuthTransport(opts ...Option) (http.RoundTripper, error) {
 	tp, err := NewRTZRTokenProvider(opts...)
 	if err != nil {
 		return nil, err
 	}
-	return &authTransport{transport: t, tokenProvider: tp}, nil
+	return &authTransport{transport: http.DefaultTransport, tokenProvider: tp}, nil
 }
 
 func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {

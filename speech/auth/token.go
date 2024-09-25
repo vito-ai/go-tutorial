@@ -11,10 +11,6 @@ type ReturnZeroToken struct {
 	ExpireAt    int64  `json:"expire_at"`
 }
 
-func (t *ReturnZeroToken) IsValid() bool {
-	return t.isValidWithExpiry()
-}
-
 func (t *ReturnZeroToken) isEmpty() bool {
 	return t == nil || t.AccessToken == ""
 }

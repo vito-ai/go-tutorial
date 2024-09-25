@@ -25,7 +25,6 @@ type gRPCClient struct {
 
 // gRPC 스트리밍을 위한 새로운 gRPC 클라이언트를 만듭니다.
 func NewStreamingClient(opts ...auth.Option) (*gRPCClient, error) {
-	opts = append(opts, auth.WithClientToken("https://openapi.vito.ai/v1/authenticate"))
 	tp, err := auth.NewRTZRTokenProvider(opts...)
 	if err != nil {
 		return nil, err
