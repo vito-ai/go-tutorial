@@ -55,11 +55,7 @@ go.work
 
 ### VisualStudioCode Patch ###
 # Ignore all local history of files
-.history
-.ionide
+.history.ionide
 
-client_secret.txt
-dev_client_secret.txt
-main.go
 
 # End of https://www.toptal.com/developers/gitignore/api/go,linux,visualstudiocode
