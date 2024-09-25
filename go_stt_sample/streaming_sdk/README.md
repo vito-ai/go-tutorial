@@ -1,6 +1,6 @@
 # RTZR STT API Go example
 
-RTZR Streaming STT API Example
+RTZR Streaming STT SDK Example
 
 ## Authentication
 
