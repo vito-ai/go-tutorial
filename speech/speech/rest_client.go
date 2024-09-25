@@ -60,12 +60,16 @@ func (c *restClient) Recognize(ctx context.Context, param *RecognizeRequest) (*R
 }
 
 func (c *restClient) RecognizeAsync(ctx context.Context, param *RecognizeRequest) (ResultId, error) {
+	isPipeClose := false
+
 	buf, w := io.Pipe()
 	writer := multipart.NewWriter(w)
 	defer func() {
-		buf.Close()
-		w.Close()
-		writer.Close()
+		if !isPipeClose {
+			buf.Close()
+			w.Close()
+			writer.Close()
+		}
 	}()
 
 	err := param.AudioSource.validate()
@@ -77,6 +81,7 @@ func (c *restClient) RecognizeAsync(ctx context.Context, param *RecognizeRequest
 	defer close(errCh)
 
 	go func() {
+		defer w.Close()
 		if err := createConfigField(writer, param.Config); err != nil {
 			errCh <- err
 			return
@@ -97,11 +102,6 @@ func (c *restClient) RecognizeAsync(ctx context.Context, param *RecognizeRequest
 			return
 		}
 
-		if err := w.Close(); err != nil {
-			errCh <- err
-			return
-		}
-
 		errCh <- nil
 	}()
 
@@ -112,6 +112,10 @@ func (c *restClient) RecognizeAsync(ctx context.Context, param *RecognizeRequest
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 
 	response, err := c.httpClient.Do(req)
+
+	buf.Close()
+	isPipeClose = true
+
 	if err != nil {
 		return "", err
 	}
