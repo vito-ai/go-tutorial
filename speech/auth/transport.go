@@ -2,6 +2,8 @@ package auth
 
 import (
 	"net/http"
+
+	"github.com/vito-ai/auth/option"
 )
 
 type authTransport struct {
@@ -9,8 +11,8 @@ type authTransport struct {
 	transport     http.RoundTripper
 }
 
-func NewAuthClient(opts ...Option) (*http.Client, error) {
-	tp, err := newAuthTransport(opts...)
+func NewAuthClient(cliopts *option.ClientOption) (*http.Client, error) {
+	tp, err := newAuthTransport(http.DefaultTransport, cliopts)
 	if err != nil {
 		return nil, err
 	}
@@ -18,12 +20,12 @@ func NewAuthClient(opts ...Option) (*http.Client, error) {
 	return httpClient, nil
 }
 
-func newAuthTransport(opts ...Option) (http.RoundTripper, error) {
-	tp, err := NewRTZRTokenProvider(opts...)
+func newAuthTransport(t http.RoundTripper, cliopts *option.ClientOption) (http.RoundTripper, error) {
+	tp, err := NewRTZRTokenProvider(cliopts)
 	if err != nil {
 		return nil, err
 	}
-	return &authTransport{transport: http.DefaultTransport, tokenProvider: tp}, nil
+	return &authTransport{transport: t, tokenProvider: tp}, nil
 }
 
 func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {

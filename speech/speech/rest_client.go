@@ -12,10 +12,12 @@ import (
 	"os"
 	"time"
 
-	auth "github.com/vito-ai/auth"
+	"github.com/vito-ai/auth"
+	"github.com/vito-ai/auth/option"
 )
 
 var ErrNotFinish = errors.New("result is not complete yet")
+var ErrFailed = errors.New("result failed")
 
 type restClient struct {
 	// endpoint to rtzr api server host
@@ -26,14 +28,14 @@ type restClient struct {
 }
 
 // Make New Client for RESTful STT API
-func NewRestClient(opts ...auth.Option) (*restClient, error) {
-	httpClient, err := auth.NewAuthClient(opts...)
+func NewRestClient(cliopts *option.ClientOption) (*restClient, error) {
+	httpClient, err := auth.NewAuthClient(cliopts)
 	if err != nil {
 		return nil, err
 	}
 
 	c := &restClient{
-		endpoint:   "https://openapi.vito.ai/v1/transcribe",
+		endpoint:   cliopts.GetRestEndpoint(),
 		httpClient: httpClient,
 	}
 
@@ -61,11 +63,11 @@ func (c *restClient) Recognize(ctx context.Context, param *RecognizeRequest) (*R
 func (c *restClient) RecognizeAsync(ctx context.Context, param *RecognizeRequest) (ResultId, error) {
 	isPipeClose := false
 
-	buf, w := io.Pipe()
+	r, w := io.Pipe()
 	writer := multipart.NewWriter(w)
 	defer func() {
 		if !isPipeClose {
-			buf.Close()
+			r.Close()
 			w.Close()
 			writer.Close()
 		}
@@ -104,20 +106,18 @@ func (c *restClient) RecognizeAsync(ctx context.Context, param *RecognizeRequest
 		errCh <- nil
 	}()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint, buf)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint, r)
 	if err != nil {
 		return "", err
 	}
 	req.Header.Add("Content-Type", writer.FormDataContentType())
-
 	response, err := c.httpClient.Do(req)
-
-	buf.Close()
-	isPipeClose = true
-
 	if err != nil {
 		return "", err
 	}
+
+	r.Close()
+	isPipeClose = true
 	defer response.Body.Close()
 
 	select {
@@ -144,8 +144,7 @@ func (c *restClient) RecognizeAsync(ctx context.Context, param *RecognizeRequest
 }
 
 func (c *restClient) ReceiveResult(ctx context.Context, resultId ResultId) (*RecognizeResponse, error) {
-	var buf bytes.Buffer
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.endpoint+"/"+string(resultId), &buf)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.endpoint+"/"+string(resultId), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -157,20 +156,24 @@ func (c *restClient) ReceiveResult(ctx context.Context, resultId ResultId) (*Rec
 	defer response.Body.Close()
 
 	result := &RecognizeResponse{}
-	resByte, _ := io.ReadAll(response.Body)
-	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("error response : %s", string(resByte))
+	resByte, err := io.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
 	}
 
 	if err := json.Unmarshal(resByte, &result); err != nil {
 		return nil, err
 	}
-
-	if result.Status == "completed" {
+	switch result.Status {
+	case "completed":
 		return result, nil
+	case "transcribing":
+		return nil, ErrNotFinish
+	case "failed":
+		return nil, ErrFailed
+	default:
+		return nil, fmt.Errorf("server response error : %s", string(resByte))
 	}
-
-	return nil, ErrNotFinish
 }
 
 func (c *restClient) receiveResultWithPolling(ctx context.Context, resultId ResultId, delay time.Duration) (*RecognizeResponse, error) {
@@ -180,13 +183,17 @@ func (c *restClient) receiveResultWithPolling(ctx context.Context, resultId Resu
 			return nil, ctx.Err()
 		case <-time.After(delay):
 			res, err := c.ReceiveResult(ctx, resultId)
-			if err != nil && err != ErrNotFinish {
+			if err != nil {
+				if errors.Is(err, ErrNotFinish) {
+					continue
+				}
 				return nil, err
 			}
 
 			if res != nil {
 				return res, nil
 			}
+			return nil, errors.New("nil response return")
 		}
 	}
 }

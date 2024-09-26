@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/vito-ai/auth/credentials"
+	"github.com/vito-ai/auth/option"
 )
 
 // TokenProvider Interface
@@ -28,35 +29,13 @@ type tokenProviderRTZR struct {
 	TokenURL     string
 }
 
-// type Alias
-type Option = func(*tokenProviderRTZR)
-
-func WithClientId(clientId string) Option {
-	return func(ot *tokenProviderRTZR) {
-		ot.clientId = clientId
-	}
-}
-
-func WithClientSecret(clientSecret string) Option {
-	return func(ot *tokenProviderRTZR) {
-		ot.clientSecret = clientSecret
-	}
-}
-
-func defaultTokenProviderRTZR() *tokenProviderRTZR {
+func NewRTZRTokenProvider(opt *option.ClientOption) (TokenProvider, error) {
 	creds := credentials.GetDefaultClientCreds()
-	return &tokenProviderRTZR{
-		clientId:     creds.ClientId,
-		clientSecret: creds.ClientSecret,
-		TokenURL:     "https://openapi.vito.ai/v1/authenticate",
-	}
-}
-
-func NewRTZRTokenProvider(opts ...Option) (TokenProvider, error) {
-	tp := defaultTokenProviderRTZR()
-
-	for _, opt := range opts {
-		opt(tp)
+	tp := &tokenProviderRTZR{
+		clientId:     opt.GetClientId(creds.ClientId),
+		clientSecret: opt.GetClientSecret(creds.ClientSecret),
+		TokenURL:     opt.GetTokenURL(),
+		Client:       http.DefaultClient,
 	}
 
 	if err := tp.validate(); err != nil {
@@ -120,10 +99,10 @@ func (tp *tokenProviderRTZR) Token(ctx context.Context) (*ReturnZeroToken, error
 	}
 
 	if result.AccessToken == "" {
-		return nil, fmt.Errorf("unmarshalled response is missing access_token")
+		return nil, errors.New("unmarshalled response is missing access_token")
 	}
 	if result.ExpireAt <= time.Now().Unix() {
-		return nil, fmt.Errorf("unmarshalled response has invalid expire_at timestamp")
+		return nil, errors.New("unmarshalled response has invalid expire_at timestamp")
 	}
 
 	tp.token = result

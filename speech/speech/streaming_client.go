@@ -3,9 +3,6 @@ package speech
 import (
 	"context"
 	"fmt"
-	"time"
-
-	auth "github.com/vito-ai/auth"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	pb "github.com/vito-ai/go-genproto/vito-openapi/stt"
@@ -13,10 +10,12 @@ import (
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
+
+	"github.com/vito-ai/auth"
+	"github.com/vito-ai/auth/option"
 )
 
 type gRPCClient struct {
-	endpoint string
 	coonPool *grpc.ClientConn
 	client   pb.OnlineDecoderClient
 
@@ -24,29 +23,26 @@ type gRPCClient struct {
 }
 
 // gRPC 스트리밍을 위한 새로운 gRPC 클라이언트를 만듭니다.
-func NewStreamingClient(opts ...auth.Option) (*gRPCClient, error) {
-	tp, err := auth.NewRTZRTokenProvider(opts...)
+func NewStreamingClient(ctx context.Context, cliopts *option.ClientOption) (*gRPCClient, error) {
+	tp, err := auth.NewRTZRTokenProvider(cliopts)
 	if err != nil {
 		return nil, err
 	}
 
 	c := &gRPCClient{
-		endpoint: "grpc-openapi.vito.ai:443",
-		tp:       tp,
+		tp: tp,
 	}
 
 	var dialOpts []grpc.DialOption
-	dialOpts = append(dialOpts, grpc.WithTransportCredentials(credentials.NewClientTLSFromCert(nil, ""))) //TLS certificate nil로 해서 header를 통한 authority 진행
+	dialOpts = append(dialOpts, grpc.WithTransportCredentials(credentials.NewClientTLSFromCert(nil, "")))
 
-	conn, err := grpc.NewClient(c.endpoint, dialOpts...)
+	conn, err := grpc.NewClient(cliopts.GetStreamingEndpoint(), dialOpts...)
 	if err != nil {
 		return nil, err
 	}
 
-	newCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	if isConnReady := conn.WaitForStateChange(newCtx, connectivity.Ready); !isConnReady {
-		return nil, fmt.Errorf("cannot connect to vito grpc server")
+	if isConnReady := conn.WaitForStateChange(ctx, connectivity.Ready); !isConnReady {
+		return nil, fmt.Errorf("cannot connect to rtzr stt grpc server")
 	}
 
 	client := pb.NewOnlineDecoderClient(conn)
