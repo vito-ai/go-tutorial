@@ -24,6 +24,9 @@ type gRPCClient struct {
 
 // gRPC 스트리밍을 위한 새로운 gRPC 클라이언트를 만듭니다.
 func NewStreamingClient(ctx context.Context, cliopts *option.ClientOption) (*gRPCClient, error) {
+	if cliopts == nil {
+		cliopts = option.DefaultClientOption()
+	}
 	tp, err := auth.NewRTZRTokenProvider(cliopts)
 	if err != nil {
 		return nil, err

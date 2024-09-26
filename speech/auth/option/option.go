@@ -7,6 +7,10 @@ type ClientOption struct {
 	TokenURL     string
 }
 
+func DefaultClientOption() *ClientOption {
+	return &ClientOption{}
+}
+
 func (opt *ClientOption) GetRestEndpoint() string {
 	if opt.Endpoint != "" {
 		return opt.Endpoint

@@ -29,6 +29,9 @@ type restClient struct {
 
 // Make New Client for RESTful STT API
 func NewRestClient(cliopts *option.ClientOption) (*restClient, error) {
+	if cliopts == nil {
+		cliopts = option.DefaultClientOption()
+	}
 	httpClient, err := auth.NewAuthClient(cliopts)
 	if err != nil {
 		return nil, err
