@@ -96,7 +96,8 @@ func main() {
 	audioFile := flag.Arg(0)
 	ctx := context.Background()
 
-	client, _ := speech.NewStreamingClient()
+	client, _ := speech.NewStreamingClient(ctx, nil)
+	defer client.Close()
 
 	stream, _ := client.StreamingRecognize(ctx)
 

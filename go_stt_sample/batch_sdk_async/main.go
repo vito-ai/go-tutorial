@@ -28,7 +28,7 @@ func main() {
 	filePath := flag.Arg(0)
 	ctx := context.Background()
 
-	client, err := speech.NewRestClient()
+	client, err := speech.NewRestClient(nil)
 	if err != nil {
 		fmt.Println(err)
 		return
