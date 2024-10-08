@@ -13,7 +13,7 @@ import (
 	"time"
 
 	pb "github.com/vito-ai/go-genproto/vito-openapi/stt"
-	"github.com/vito-ai/speech"
+	"github.com/vito-ai/go-sdk/speech"
 	"github.com/xfrr/goffmpeg/transcoder"
 )
 

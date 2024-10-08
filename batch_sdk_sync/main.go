@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/vito-ai/speech"
+	"github.com/vito-ai/go-sdk/speech"
 )
 
 var True = true

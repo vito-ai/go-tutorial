@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/vito-ai/speech"
+	"github.com/vito-ai/go-sdk/speech"
 )
 
 var True = true
@@ -59,8 +59,4 @@ func main() {
 	for _, utterance := range resp.Results.Utterances {
 		fmt.Println(utterance.Msg)
 	}
-	if err != nil {
-		log.Fatal(err)
-	}
-
 }

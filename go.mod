@@ -5,6 +5,7 @@ go 1.23.0
 require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/vito-ai/go-genproto v0.9.3
+	github.com/vito-ai/go-sdk v0.0.0-20241008043206-8c0f7de04a28
 	github.com/xfrr/goffmpeg v1.0.0
 	google.golang.org/grpc v1.67.0
 )
